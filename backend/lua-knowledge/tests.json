@@ -1,0 +1,21 @@
+{
+  "tests": [
+    {
+      "name": "Get all Lua knowledge",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 200,
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Seed knowledge base",
+      "method": "GET",
+      "path": "/?seed=true",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "success": true
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

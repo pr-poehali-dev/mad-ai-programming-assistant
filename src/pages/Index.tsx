@@ -32,6 +32,16 @@ interface TrainingExample {
   created: Date;
 }
 
+interface TelegramBot {
+  id: string;
+  telegram_token: string;
+  bot_username?: string;
+  is_active: boolean;
+  webhook_url: string;
+  created_at: string;
+  last_activity?: string;
+}
+
 const Index = () => {
   const [isDark, setIsDark] = useState(true);
   const [activeTab, setActiveTab] = useState('home');
@@ -48,6 +58,9 @@ const Index = () => {
   const [trainingExamples, setTrainingExamples] = useState<TrainingExample[]>([]);
   const [trainingInput, setTrainingInput] = useState('');
   const [trainingOutput, setTrainingOutput] = useState('');
+  const [telegramBots, setTelegramBots] = useState<TelegramBot[]>([]);
+  const [newTelegramToken, setNewTelegramToken] = useState('');
+  const [selectedApiKeyForBot, setSelectedApiKeyForBot] = useState('');
   const [trainingCategory, setTrainingCategory] = useState('');
   const { toast } = useToast();
 
@@ -214,7 +227,7 @@ const Index = () => {
 
       <div className="container mx-auto px-4 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-4 mb-8">
+          <TabsList className="grid w-full grid-cols-5 mb-8">
             <TabsTrigger value="home" className="gap-2">
               <Icon name="Home" size={16} />
               Главная
@@ -226,6 +239,10 @@ const Index = () => {
             <TabsTrigger value="api" className="gap-2">
               <Icon name="Key" size={16} />
               API ключи
+            </TabsTrigger>
+            <TabsTrigger value="telegram" className="gap-2">
+              <Icon name="Send" size={16} />
+              Telegram
             </TabsTrigger>
             <TabsTrigger value="training" className="gap-2">
               <Icon name="GraduationCap" size={16} />
@@ -516,6 +533,243 @@ const Index = () => {
                   ))}
                 </div>
               )}
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="telegram" className="space-y-4">
+            <Card className="p-6 bg-gradient-to-br from-primary/10 to-secondary/10 border-primary/30">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-lg bg-primary/20 flex items-center justify-center flex-shrink-0">
+                  <Icon name="Send" className="text-primary" size={24} />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-xl font-bold mb-2">Интеграция с Telegram</h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Подключите MadAI к вашему Telegram боту. Бот будет отвечать на вопросы по Lua программированию прямо в мессенджере.
+                  </p>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex items-start gap-2">
+                      <Icon name="Check" className="text-primary mt-0.5" size={16} />
+                      <p>Экспертиза по Lua — от основ до метатаблиц</p>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <Icon name="Check" className="text-primary mt-0.5" size={16} />
+                      <p>Примеры кода и объяснения</p>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <Icon name="Check" className="text-primary mt-0.5" size={16} />
+                      <p>Защита через API ключи</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </Card>
+
+            <Card className="p-6">
+              <h3 className="text-xl font-semibold mb-4">Добавить Telegram бота</h3>
+              
+              <div className="space-y-4 mb-6">
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Выберите API ключ</label>
+                  <select 
+                    className="w-full px-3 py-2 rounded-md border border-input bg-background"
+                    value={selectedApiKeyForBot}
+                    onChange={(e) => setSelectedApiKeyForBot(e.target.value)}
+                  >
+                    <option value="">-- Выберите API ключ --</option>
+                    {apiKeys.map((key) => (
+                      <option key={key.id} value={key.key}>
+                        {key.name} ({key.key.substring(0, 15)}...)
+                      </option>
+                    ))}
+                  </select>
+                  {apiKeys.length === 0 && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Сначала создайте API ключ во вкладке "API ключи"
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium mb-2 block">
+                    Telegram Bot Token
+                    <a 
+                      href="https://t.me/BotFather" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-primary ml-2 text-xs hover:underline"
+                    >
+                      Получить в @BotFather
+                    </a>
+                  </label>
+                  <Input
+                    placeholder="1234567890:ABCdefGHIjklMNOpqrsTUVwxyz"
+                    value={newTelegramToken}
+                    onChange={(e) => setNewTelegramToken(e.target.value)}
+                    type="password"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Токен от @BotFather в формате: 123456:ABC-DEF...
+                  </p>
+                </div>
+
+                <Button 
+                  onClick={async () => {
+                    if (!selectedApiKeyForBot || !newTelegramToken) {
+                      toast({
+                        title: 'Заполните все поля',
+                        description: 'Выберите API ключ и введите Telegram токен',
+                        variant: 'destructive',
+                      });
+                      return;
+                    }
+
+                    try {
+                      const webhookUrl = 'https://functions.poehali.dev/42cde964-8986-42e2-924b-21e95a95a8a0';
+                      
+                      const response = await fetch('https://functions.poehali.dev/0d3e0ea9-ef0c-43f4-b911-a5babcce4fbf', {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          'X-Api-Key': selectedApiKeyForBot,
+                        },
+                        body: JSON.stringify({
+                          telegram_token: newTelegramToken,
+                          webhook_url: webhookUrl,
+                        }),
+                      });
+
+                      if (!response.ok) {
+                        throw new Error('Failed to add bot');
+                      }
+
+                      const result = await response.json();
+                      
+                      const newBot: TelegramBot = {
+                        id: result.id.toString(),
+                        telegram_token: newTelegramToken,
+                        bot_username: result.bot_username,
+                        is_active: true,
+                        webhook_url: webhookUrl,
+                        created_at: new Date().toISOString(),
+                      };
+
+                      setTelegramBots((prev) => [...prev, newBot]);
+                      setNewTelegramToken('');
+                      setSelectedApiKeyForBot('');
+
+                      toast({
+                        title: 'Бот подключен!',
+                        description: `@${result.bot_username} готов к работе`,
+                      });
+                    } catch (error) {
+                      toast({
+                        title: 'Ошибка',
+                        description: 'Проверьте токен и попробуйте снова',
+                        variant: 'destructive',
+                      });
+                    }
+                  }}
+                  className="w-full gap-2"
+                  disabled={!selectedApiKeyForBot || !newTelegramToken}
+                >
+                  <Icon name="Plus" size={18} />
+                  Подключить бота
+                </Button>
+              </div>
+            </Card>
+
+            <Card className="p-6">
+              <h3 className="text-xl font-semibold mb-4">
+                Мои Telegram боты ({telegramBots.length})
+              </h3>
+
+              {telegramBots.length === 0 ? (
+                <div className="text-center py-12 space-y-3">
+                  <div className="w-16 h-16 rounded-full bg-muted mx-auto flex items-center justify-center">
+                    <Icon name="Bot" className="text-muted-foreground" size={32} />
+                  </div>
+                  <p className="text-muted-foreground">У вас нет подключенных ботов</p>
+                  <p className="text-sm text-muted-foreground">
+                    Создайте бота в @BotFather и подключите его выше
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {telegramBots.map((bot) => (
+                    <Card key={bot.id} className="p-4 hover:shadow-md transition-shadow">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1 space-y-2">
+                          <div className="flex items-center gap-2">
+                            <Icon name="Send" className="text-primary" size={18} />
+                            <p className="font-semibold">
+                              {bot.bot_username ? `@${bot.bot_username}` : 'Telegram Bot'}
+                            </p>
+                            <Badge variant={bot.is_active ? 'default' : 'secondary'}>
+                              {bot.is_active ? 'Активен' : 'Неактивен'}
+                            </Badge>
+                          </div>
+                          <div className="text-xs text-muted-foreground space-y-1">
+                            <p>Webhook: {bot.webhook_url}</p>
+                            <p>Создан: {new Date(bot.created_at).toLocaleString('ru-RU')}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant={bot.is_active ? 'outline' : 'default'}
+                            size="sm"
+                            onClick={async () => {
+                              try {
+                                const response = await fetch('https://functions.poehali.dev/0d3e0ea9-ef0c-43f4-b911-a5babcce4fbf', {
+                                  method: 'PUT',
+                                  headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-Api-Key': selectedApiKeyForBot,
+                                  },
+                                  body: JSON.stringify({ bot_id: parseInt(bot.id) }),
+                                });
+
+                                if (response.ok) {
+                                  setTelegramBots((prev) =>
+                                    prev.map((b) =>
+                                      b.id === bot.id ? { ...b, is_active: !b.is_active } : b
+                                    )
+                                  );
+                                  toast({
+                                    title: bot.is_active ? 'Бот остановлен' : 'Бот активирован',
+                                  });
+                                }
+                              } catch (error) {
+                                toast({
+                                  title: 'Ошибка',
+                                  description: 'Не удалось изменить статус',
+                                  variant: 'destructive',
+                                });
+                              }
+                            }}
+                          >
+                            <Icon name={bot.is_active ? 'Pause' : 'Play'} size={14} />
+                          </Button>
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </Card>
+
+            <Card className="p-6 bg-primary/5 border-primary/20">
+              <h4 className="font-semibold mb-3 flex items-center gap-2">
+                <Icon name="Info" size={18} className="text-primary" />
+                Как подключить бота?
+              </h4>
+              <div className="space-y-2 text-sm text-muted-foreground">
+                <p><strong>1.</strong> Создайте бота в Telegram через @BotFather командой /newbot</p>
+                <p><strong>2.</strong> Скопируйте полученный токен</p>
+                <p><strong>3.</strong> Создайте API ключ во вкладке "API ключи"</p>
+                <p><strong>4.</strong> Подключите бота выше, указав API ключ и токен</p>
+                <p><strong>5.</strong> Бот автоматически настроится и начнёт отвечать на вопросы по Lua!</p>
+              </div>
             </Card>
           </TabsContent>
         </Tabs>

@@ -1,0 +1,30 @@
+{
+  "tests": [
+    {
+      "name": "Get bots without API key",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 401,
+      "expectedBody": {
+        "error": "string"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Missing telegram token",
+      "method": "POST",
+      "path": "/",
+      "headers": {
+        "X-Api-Key": "test_key"
+      },
+      "body": {
+        "webhook_url": "https://example.com"
+      },
+      "expectedStatus": 400,
+      "expectedBody": {
+        "error": "string"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}
