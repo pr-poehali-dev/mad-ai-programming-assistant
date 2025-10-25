@@ -9,6 +9,8 @@ def get_lua_knowledge(query: str, conn) -> str:
     query_lower = query.lower()
     query_safe = query_lower.replace("'", "''")
     
+    print(f"Searching lua_knowledge_base for: '{query_safe}'")
+    
     cursor.execute(f"""
         SELECT topic, description, code_example, explanation
         FROM lua_knowledge_base
@@ -27,7 +29,10 @@ def get_lua_knowledge(query: str, conn) -> str:
     results = cursor.fetchall()
     cursor.close()
     
+    print(f"Found {len(results)} results from knowledge base")
+    
     if not results:
+        print("No results found, using generic response")
         return generate_generic_lua_response(query)
     
     response_parts = []
@@ -207,11 +212,14 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     
     try:
         body_data = json.loads(event.get('body', '{}'))
+        print(f"Received webhook body: {json.dumps(body_data)[:200]}")
         
         if 'message' in body_data:
             message = body_data['message']
             chat_id = message['chat']['id']
             user_text = message.get('text', '')
+            
+            print(f"User message: '{user_text}' from chat_id: {chat_id}")
             
             if user_text.startswith('/start'):
                 response_text = """🚀 MadAI Telegram Bot активирован!
@@ -226,6 +234,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
 Просто напишите ваш вопрос!"""
             else:
+                print(f"Processing user query: '{user_text}'")
+                
                 user_text_safe = user_text.replace("'", "''")
                 
                 cursor = conn.cursor()
@@ -236,7 +246,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 conn.commit()
                 cursor.close()
                 
+                print("Getting AI response from lua_knowledge...")
                 ai_response = get_lua_knowledge(user_text, conn)
+                print(f"AI response (first 100 chars): {ai_response[:100]}")
+                
                 ai_response_safe = ai_response.replace("'", "''")
                 
                 cursor = conn.cursor()
