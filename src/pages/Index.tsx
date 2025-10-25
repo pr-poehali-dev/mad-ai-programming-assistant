@@ -103,8 +103,6 @@ const Index = () => {
           lastUsed: k.lastUsed ? new Date(k.lastUsed) : undefined
         })));
       }
-
-      await fetch('https://functions.poehali.dev/fcccfa67-b685-49d2-88f4-2ede52f81e42?seed=true');
     } catch (error) {
       console.error('Error loading data:', error);
     }
