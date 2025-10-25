@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -64,12 +64,12 @@ const Index = () => {
   const [trainingCategory, setTrainingCategory] = useState('');
   const { toast } = useToast();
 
-  useState(() => {
+  useEffect(() => {
     if (isDark) {
       document.documentElement.classList.add('dark');
     }
     loadInitialData();
-  });
+  }, []);
 
   const loadInitialData = async () => {
     try {
