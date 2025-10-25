@@ -6,14 +6,16 @@ from typing import Dict, Any, List
 def get_telegram_bots(api_key: str, conn) -> List[Dict]:
     cursor = conn.cursor()
     
-    cursor.execute("""
+    api_key_safe = api_key.replace("'", "''")
+    
+    cursor.execute(f"""
         SELECT tb.id, tb.telegram_token, tb.bot_username, tb.is_active, 
                tb.webhook_url, tb.created_at, tb.last_activity
         FROM telegram_bots tb
         JOIN api_keys ak ON tb.api_key_id = ak.id
-        WHERE ak.key = %s
+        WHERE ak.key = '{api_key_safe}'
         ORDER BY tb.created_at DESC
-    """, (api_key,))
+    """)
     
     results = cursor.fetchall()
     cursor.close()
@@ -35,7 +37,9 @@ def get_telegram_bots(api_key: str, conn) -> List[Dict]:
 def add_telegram_bot(api_key: str, telegram_token: str, webhook_url: str, conn) -> Dict:
     cursor = conn.cursor()
     
-    cursor.execute("SELECT id FROM api_keys WHERE key = %s", (api_key,))
+    api_key_safe = api_key.replace("'", "''")
+    
+    cursor.execute(f"SELECT id FROM api_keys WHERE key = '{api_key_safe}'")
     api_key_result = cursor.fetchone()
     
     if not api_key_result:
@@ -61,11 +65,15 @@ def add_telegram_bot(api_key: str, telegram_token: str, webhook_url: str, conn) 
     except urllib.error.URLError:
         raise ValueError("Cannot verify Telegram token")
     
-    cursor.execute("""
+    telegram_token_safe = telegram_token.replace("'", "''")
+    bot_username_safe = (bot_username or '').replace("'", "''")
+    webhook_url_safe = webhook_url.replace("'", "''")
+    
+    cursor.execute(f"""
         INSERT INTO telegram_bots (api_key_id, telegram_token, bot_username, webhook_url)
-        VALUES (%s, %s, %s, %s)
+        VALUES ({api_key_id}, '{telegram_token_safe}', '{bot_username_safe}', '{webhook_url_safe}')
         RETURNING id
-    """, (api_key_id, telegram_token, bot_username, webhook_url))
+    """)
     
     new_id = cursor.fetchone()[0]
     conn.commit()
@@ -97,13 +105,15 @@ def add_telegram_bot(api_key: str, telegram_token: str, webhook_url: str, conn) 
 def toggle_bot_status(bot_id: int, api_key: str, conn) -> Dict:
     cursor = conn.cursor()
     
-    cursor.execute("""
+    api_key_safe = api_key.replace("'", "''")
+    
+    cursor.execute(f"""
         UPDATE telegram_bots tb
         SET is_active = NOT is_active
         FROM api_keys ak
-        WHERE tb.id = %s AND tb.api_key_id = ak.id AND ak.key = %s
+        WHERE tb.id = {bot_id} AND tb.api_key_id = ak.id AND ak.key = '{api_key_safe}'
         RETURNING is_active
-    """, (bot_id, api_key))
+    """)
     
     result = cursor.fetchone()
     

@@ -73,12 +73,9 @@ const Index = () => {
 
   const loadInitialData = async () => {
     try {
-      const [messagesRes, keysRes, botsRes] = await Promise.all([
+      const [messagesRes, keysRes] = await Promise.all([
         fetch('https://functions.poehali.dev/7a89db06-7752-4cc5-b58a-9a9235d4033a'),
-        fetch('https://functions.poehali.dev/83448cb6-3488-4311-a792-23d36dc532c1'),
-        fetch('https://functions.poehali.dev/0d3e0ea9-ef0c-43f4-b911-a5babcce4fbf', {
-          headers: apiKeys.length > 0 ? { 'X-Api-Key': apiKeys[0].key } : {}
-        })
+        fetch('https://functions.poehali.dev/83448cb6-3488-4311-a792-23d36dc532c1')
       ]);
 
       if (messagesRes.ok) {
@@ -95,13 +92,33 @@ const Index = () => {
 
       if (keysRes.ok) {
         const keys = await keysRes.json();
-        setApiKeys(keys.map((k: any) => ({
+        const loadedKeys = keys.map((k: any) => ({
           id: k.id.toString(),
           key: k.key,
           name: k.name,
           created: new Date(k.created),
           lastUsed: k.lastUsed ? new Date(k.lastUsed) : undefined
-        })));
+        }));
+        setApiKeys(loadedKeys);
+
+        if (loadedKeys.length > 0) {
+          const botsRes = await fetch('https://functions.poehali.dev/0d3e0ea9-ef0c-43f4-b911-a5babcce4fbf', {
+            headers: { 'X-Api-Key': loadedKeys[0].key }
+          });
+
+          if (botsRes.ok) {
+            const bots = await botsRes.json();
+            setTelegramBots(bots.map((b: any) => ({
+              id: b.id.toString(),
+              telegram_token: b.telegram_token,
+              bot_username: b.bot_username,
+              is_active: b.is_active,
+              webhook_url: b.webhook_url,
+              created_at: b.created_at,
+              last_activity: b.last_activity
+            })));
+          }
+        }
       }
     } catch (error) {
       console.error('Error loading data:', error);
