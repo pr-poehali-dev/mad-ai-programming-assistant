@@ -7,23 +7,22 @@ def get_lua_knowledge(query: str, conn) -> str:
     cursor = conn.cursor()
     
     query_lower = query.lower()
-    keywords = query_lower.split()
+    query_safe = query_lower.replace("'", "''")
     
-    cursor.execute("""
+    cursor.execute(f"""
         SELECT topic, description, code_example, explanation
         FROM lua_knowledge_base
         WHERE 
-            keywords && %s::text[]
-            OR LOWER(topic) LIKE %s
-            OR LOWER(description) LIKE %s
+            LOWER(topic) LIKE '%{query_safe}%'
+            OR LOWER(description) LIKE '%{query_safe}%'
         ORDER BY 
             CASE 
-                WHEN LOWER(topic) = %s THEN 1
-                WHEN LOWER(topic) LIKE %s THEN 2
+                WHEN LOWER(topic) = '{query_safe}' THEN 1
+                WHEN LOWER(topic) LIKE '%{query_safe}%' THEN 2
                 ELSE 3
             END
         LIMIT 3
-    """, (keywords, f'%{query_lower}%', f'%{query_lower}%', query_lower, f'%{query_lower}%'))
+    """)
     
     results = cursor.fetchall()
     cursor.close()
@@ -119,14 +118,16 @@ end
 
 Пример: "Как работают функции в Lua?" """
 
-def verify_api_key(api_key: str, telegram_token: str, conn) -> bool:
+def get_bot_by_token(telegram_token: str, conn) -> bool:
     cursor = conn.cursor()
-    cursor.execute("""
+    
+    token_safe = telegram_token.replace("'", "''")
+    
+    cursor.execute(f"""
         SELECT tb.id 
         FROM telegram_bots tb
-        JOIN api_keys ak ON tb.api_key_id = ak.id
-        WHERE ak.key = %s AND tb.telegram_token = %s AND tb.is_active = true
-    """, (api_key, telegram_token))
+        WHERE tb.telegram_token = '{token_safe}' AND tb.is_active = true
+    """)
     result = cursor.fetchone()
     cursor.close()
     return result is not None
@@ -176,15 +177,14 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'body': json.dumps({'error': 'Method not allowed'})
         }
     
-    headers = event.get('headers', {})
-    api_key = headers.get('x-api-key') or headers.get('X-Api-Key')
-    telegram_token = headers.get('x-telegram-bot-token') or headers.get('X-Telegram-Bot-Token')
+    query_params = event.get('queryStringParameters', {}) or {}
+    telegram_token = query_params.get('token')
     
-    if not api_key or not telegram_token:
+    if not telegram_token:
         return {
             'statusCode': 401,
             'headers': {'Content-Type': 'application/json'},
-            'body': json.dumps({'error': 'Missing API key or Telegram token'})
+            'body': json.dumps({'error': 'Missing bot token in query params'})
         }
     
     database_url = os.environ.get('DATABASE_URL')
@@ -197,12 +197,12 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     
     conn = psycopg2.connect(database_url)
     
-    if not verify_api_key(api_key, telegram_token, conn):
+    if not get_bot_by_token(telegram_token, conn):
         conn.close()
         return {
             'statusCode': 403,
             'headers': {'Content-Type': 'application/json'},
-            'body': json.dumps({'error': 'Invalid API key or bot not configured'})
+            'body': json.dumps({'error': 'Bot not found or inactive'})
         }
     
     try:
@@ -226,21 +226,24 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
 Просто напишите ваш вопрос!"""
             else:
+                user_text_safe = user_text.replace("'", "''")
+                
                 cursor = conn.cursor()
-                cursor.execute("""
+                cursor.execute(f"""
                     INSERT INTO chat_messages (role, content)
-                    VALUES ('user', %s)
-                """, (user_text,))
+                    VALUES ('user', '{user_text_safe}')
+                """)
                 conn.commit()
                 cursor.close()
                 
                 ai_response = get_lua_knowledge(user_text, conn)
+                ai_response_safe = ai_response.replace("'", "''")
                 
                 cursor = conn.cursor()
-                cursor.execute("""
+                cursor.execute(f"""
                     INSERT INTO chat_messages (role, content)
-                    VALUES ('assistant', %s)
-                """, (ai_response,))
+                    VALUES ('assistant', '{ai_response_safe}')
+                """)
                 conn.commit()
                 cursor.close()
                 

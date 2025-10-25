@@ -79,7 +79,8 @@ def add_telegram_bot(api_key: str, telegram_token: str, webhook_url: str, conn) 
     conn.commit()
     
     try:
-        webhook_url_full = f"{webhook_url}"
+        import urllib.parse
+        webhook_url_full = f"{webhook_url}?token={urllib.parse.quote(telegram_token)}"
         set_webhook_url = f"https://api.telegram.org/bot{telegram_token}/setWebhook"
         
         webhook_data = json.dumps({'url': webhook_url_full}).encode()
@@ -89,7 +90,9 @@ def add_telegram_bot(api_key: str, telegram_token: str, webhook_url: str, conn) 
             data=webhook_data,
             headers={'Content-Type': 'application/json'}
         )
-        urllib.request.urlopen(req)
+        response = urllib.request.urlopen(req)
+        result = json.loads(response.read().decode())
+        print(f"Webhook set result: {result}")
         
     except Exception as e:
         print(f"Warning: Could not set webhook: {e}")
