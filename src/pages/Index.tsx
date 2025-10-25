@@ -68,9 +68,49 @@ const Index = () => {
     if (isDark) {
       document.documentElement.classList.add('dark');
     }
+    loadInitialData();
   });
 
-  const sendMessage = () => {
+  const loadInitialData = async () => {
+    try {
+      const [messagesRes, keysRes, botsRes] = await Promise.all([
+        fetch('https://functions.poehali.dev/7a89db06-7752-4cc5-b58a-9a9235d4033a'),
+        fetch('https://functions.poehali.dev/83448cb6-3488-4311-a792-23d36dc532c1'),
+        fetch('https://functions.poehali.dev/0d3e0ea9-ef0c-43f4-b911-a5babcce4fbf', {
+          headers: apiKeys.length > 0 ? { 'X-Api-Key': apiKeys[0].key } : {}
+        })
+      ]);
+
+      if (messagesRes.ok) {
+        const msgs = await messagesRes.json();
+        if (msgs.length > 0) {
+          setMessages(msgs.map((m: any) => ({
+            id: m.id.toString(),
+            role: m.role,
+            content: m.content,
+            timestamp: new Date(m.timestamp)
+          })));
+        }
+      }
+
+      if (keysRes.ok) {
+        const keys = await keysRes.json();
+        setApiKeys(keys.map((k: any) => ({
+          id: k.id.toString(),
+          key: k.key,
+          name: k.name,
+          created: new Date(k.created),
+          lastUsed: k.lastUsed ? new Date(k.lastUsed) : undefined
+        })));
+      }
+
+      await fetch('https://functions.poehali.dev/fcccfa67-b685-49d2-88f4-2ede52f81e42?seed=true');
+    } catch (error) {
+      console.error('Error loading data:', error);
+    }
+  };
+
+  const sendMessage = async () => {
     if (!inputMessage.trim()) return;
 
     const userMessage: Message = {
@@ -81,18 +121,37 @@ const Index = () => {
     };
 
     setMessages((prev) => [...prev, userMessage]);
+    const currentInput = inputMessage;
+    setInputMessage('');
 
-    setTimeout(() => {
+    try {
+      const response = await fetch('https://functions.poehali.dev/7a89db06-7752-4cc5-b58a-9a9235d4033a', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: currentInput })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const aiResponse: Message = {
+          id: data.ai_response.id.toString(),
+          role: 'assistant',
+          content: data.ai_response.content,
+          timestamp: new Date(data.ai_response.timestamp),
+        };
+        setMessages((prev) => [...prev, aiResponse]);
+      } else {
+        throw new Error('Failed to get AI response');
+      }
+    } catch (error) {
       const aiResponse: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: generateAIResponse(inputMessage),
+        content: generateAIResponse(currentInput),
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, aiResponse]);
-    }, 800);
-
-    setInputMessage('');
+    }
   };
 
   const generateAIResponse = (input: string): string => {
@@ -122,19 +181,34 @@ const Index = () => {
     return `Я обработал ваш запрос: "${input}"\n\nЯ поддерживаю:\n• Lua, JavaScript, Python\n• Математические вычисления\n• Обучение от пользователя\n\nЗадайте мне вопрос по программированию или математике!`;
   };
 
-  const generateApiKey = () => {
-    const newKey: ApiKey = {
-      id: Date.now().toString(),
-      key: `mad_${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`,
-      name: `API Key ${apiKeys.length + 1}`,
-      created: new Date(),
-    };
-    
-    setApiKeys((prev) => [...prev, newKey]);
-    toast({
-      title: 'API ключ создан',
-      description: 'Новый ключ добавлен в список',
-    });
+  const generateApiKey = async () => {
+    try {
+      const response = await fetch('https://functions.poehali.dev/83448cb6-3488-4311-a792-23d36dc532c1', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: `API Key ${apiKeys.length + 1}` })
+      });
+
+      if (response.ok) {
+        const newKey = await response.json();
+        setApiKeys((prev) => [...prev, {
+          id: newKey.id.toString(),
+          key: newKey.key,
+          name: newKey.name,
+          created: new Date(newKey.created),
+        }]);
+        toast({
+          title: 'API ключ создан',
+          description: 'Новый ключ добавлен в список',
+        });
+      }
+    } catch (error) {
+      toast({
+        title: 'Ошибка',
+        description: 'Не удалось создать ключ',
+        variant: 'destructive',
+      });
+    }
   };
 
   const copyApiKey = (key: string) => {
@@ -145,12 +219,23 @@ const Index = () => {
     });
   };
 
-  const deleteApiKey = (id: string) => {
-    setApiKeys((prev) => prev.filter((k) => k.id !== id));
-    toast({
-      title: 'Ключ удален',
-      description: 'API ключ успешно удален',
-    });
+  const deleteApiKey = async (id: string) => {
+    try {
+      await fetch(`https://functions.poehali.dev/83448cb6-3488-4311-a792-23d36dc532c1?id=${id}`, {
+        method: 'DELETE',
+      });
+      setApiKeys((prev) => prev.filter((k) => k.id !== id));
+      toast({
+        title: 'Ключ удален',
+        description: 'API ключ успешно удален',
+      });
+    } catch (error) {
+      toast({
+        title: 'Ошибка',
+        description: 'Не удалось удалить ключ',
+        variant: 'destructive',
+      });
+    }
   };
 
   const addTrainingExample = () => {
@@ -202,7 +287,7 @@ const Index = () => {
               <h1 className="text-xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
                 MadAI
               </h1>
-              <p className="text-xs text-muted-foreground">Обучаемый ИИ</p>
+              <p className="text-xs text-muted-foreground">by Мад Сатору</p>
             </div>
           </div>
           
@@ -259,7 +344,7 @@ const Index = () => {
                 Добро пожаловать в MadAI
               </h2>
               <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-                Искусственный интеллект, который учится у вас и поддерживает программирование на Lua, JavaScript, Python
+                Искусственный интеллект с экспертизой в Lua, Roblox Studio и веб-поиском. Создан Мад Сатору в 2025 году.
               </p>
             </div>
 
@@ -268,29 +353,29 @@ const Index = () => {
                 <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
                   <Icon name="Code" className="text-primary" size={24} />
                 </div>
-                <h3 className="text-xl font-semibold">Программирование</h3>
+                <h3 className="text-xl font-semibold">Lua & Roblox</h3>
                 <p className="text-muted-foreground">
-                  Поддержка Lua, JavaScript и Python с примерами кода и объяснениями
+                  Экспертиза по Lua и Roblox Studio — от основ до DataStore и RemoteEvent
                 </p>
               </Card>
 
               <Card className="p-6 space-y-3 hover:shadow-lg transition-shadow border-secondary/20">
                 <div className="w-12 h-12 rounded-lg bg-secondary/10 flex items-center justify-center">
-                  <Icon name="Calculator" className="text-secondary" size={24} />
+                  <Icon name="Search" className="text-secondary" size={24} />
                 </div>
-                <h3 className="text-xl font-semibold">Математика</h3>
+                <h3 className="text-xl font-semibold">Веб-поиск</h3>
                 <p className="text-muted-foreground">
-                  Решение математических задач и вычислений любой сложности
+                  Автоматический поиск через Yandex и Google, если не знаю ответ
                 </p>
               </Card>
 
               <Card className="p-6 space-y-3 hover:shadow-lg transition-shadow border-primary/20">
                 <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <Icon name="BookOpen" className="text-primary" size={24} />
+                  <Icon name="Send" className="text-primary" size={24} />
                 </div>
-                <h3 className="text-xl font-semibold">Обучение</h3>
+                <h3 className="text-xl font-semibold">Telegram интеграция</h3>
                 <p className="text-muted-foreground">
-                  AI учится на ваших примерах и становится умнее с каждым взаимодействием
+                  Подключите своего Telegram бота и отвечайте на вопросы прямо в мессенджере
                 </p>
               </Card>
             </div>

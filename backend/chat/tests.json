@@ -1,0 +1,27 @@
+{
+  "tests": [
+    {
+      "name": "Get chat history",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 200,
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Send message to AI",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "message": "Привет, MadAI!"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "ai_response": {
+          "role": "assistant",
+          "content": "string"
+        }
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}

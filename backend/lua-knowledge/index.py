@@ -60,6 +60,198 @@ def seed_initial_knowledge(conn):
         cursor.close()
         return
     
+    roblox_knowledge = [
+        {
+            'category': 'Roblox Основы',
+            'topic': 'Создание объектов в Roblox',
+            'description': 'Как создавать и изменять объекты в игре',
+            'code_example': '''-- Создание новой части (Part)
+local part = Instance.new("Part")
+part.Size = Vector3.new(10, 5, 10)
+part.Position = Vector3.new(0, 10, 0)
+part.BrickColor = BrickColor.new("Bright red")
+part.Material = Enum.Material.Neon
+part.Parent = game.Workspace
+
+-- Создание модели
+local model = Instance.new("Model")
+model.Name = "MyModel"
+model.Parent = workspace
+
+local part1 = Instance.new("Part")
+part1.Parent = model''',
+            'explanation': 'Instance.new() создаёт новые объекты. Parent определяет, где объект появится в иерархии.',
+            'keywords': ['roblox', 'instance', 'part', 'создание', 'объект', 'workspace'],
+            'is_roblox': True
+        },
+        {
+            'category': 'Roblox Основы',
+            'topic': 'События и функции в Roblox',
+            'description': 'Работа с событиями игроков и объектов',
+            'code_example': '''-- Событие при касании объекта
+local part = script.Parent
+
+part.Touched:Connect(function(otherPart)
+    local humanoid = otherPart.Parent:FindFirstChild("Humanoid")
+    if humanoid then
+        print("Игрок коснулся!")
+        humanoid.Health = 0  -- урон игроку
+    end
+end)
+
+-- Событие при входе игрока
+game.Players.PlayerAdded:Connect(function(player)
+    print(player.Name .. " присоединился!")
+    
+    player.CharacterAdded:Connect(function(character)
+        print("Персонаж загружен")
+    end)
+end)''',
+            'explanation': 'События Connect используются для реакции на действия. Touched срабатывает при касании, PlayerAdded — при входе игрока.',
+            'keywords': ['roblox', 'event', 'connect', 'touched', 'player', 'событие'],
+            'is_roblox': True
+        },
+        {
+            'category': 'Roblox Продвинутое',
+            'topic': 'DataStore - сохранение данных',
+            'description': 'Система сохранения игровых данных игроков',
+            'code_example': '''local DataStoreService = game:GetService("DataStoreService")
+local playerData = DataStoreService:GetDataStore("PlayerData")
+
+-- Сохранение данных
+game.Players.PlayerRemoving:Connect(function(player)
+    local data = {
+        coins = player.leaderstats.Coins.Value,
+        level = player.leaderstats.Level.Value
+    }
+    
+    local success, err = pcall(function()
+        playerData:SetAsync(player.UserId, data)
+    end)
+    
+    if success then
+        print("Данные сохранены")
+    else
+        warn("Ошибка сохранения: " .. err)
+    end
+end)
+
+-- Загрузка данных
+game.Players.PlayerAdded:Connect(function(player)
+    local success, data = pcall(function()
+        return playerData:GetAsync(player.UserId)
+    end)
+    
+    if success and data then
+        player.leaderstats.Coins.Value = data.coins
+        player.leaderstats.Level.Value = data.level
+    end
+end)''',
+            'explanation': 'DataStore позволяет сохранять данные между сессиями. Используйте pcall для обработки ошибок.',
+            'keywords': ['roblox', 'datastore', 'сохранение', 'данные', 'storage'],
+            'is_roblox': True
+        },
+        {
+            'category': 'Roblox Продвинутое',
+            'topic': 'RemoteEvent - связь клиент-сервер',
+            'description': 'Обмен данными между сервером и клиентом',
+            'code_example': '''-- ReplicatedStorage.RemoteEvent
+
+-- SERVER SCRIPT
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local remoteEvent = ReplicatedStorage:WaitForChild("DamageEvent")
+
+remoteEvent.OnServerEvent:Connect(function(player, damage)
+    local character = player.Character
+    local humanoid = character:FindFirstChild("Humanoid")
+    
+    if humanoid then
+        humanoid.Health = humanoid.Health - damage
+        print(player.Name .. " получил " .. damage .. " урона")
+    end
+end)
+
+-- LOCAL SCRIPT (клиент)
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local remoteEvent = ReplicatedStorage:WaitForChild("DamageEvent")
+
+-- Отправка урона на сервер
+local damageAmount = 25
+remoteEvent:FireServer(damageAmount)''',
+            'explanation': 'RemoteEvent позволяет клиенту отправлять данные на сервер. FireServer() отправляет, OnServerEvent слушает.',
+            'keywords': ['roblox', 'remoteevent', 'клиент', 'сервер', 'fireserver'],
+            'is_roblox': True
+        },
+        {
+            'category': 'Roblox Полезное',
+            'topic': 'Tweening - анимация объектов',
+            'description': 'Плавная анимация свойств объектов',
+            'code_example': '''local TweenService = game:GetService("TweenService")
+local part = script.Parent
+
+-- Настройки анимации
+local tweenInfo = TweenInfo.new(
+    2,  -- время (секунды)
+    Enum.EasingStyle.Quad,  -- стиль
+    Enum.EasingDirection.Out,  -- направление
+    -1,  -- повторения (-1 = бесконечно)
+    true  -- реверс (туда-обратно)
+)
+
+-- Целевые свойства
+local goal = {
+    Position = Vector3.new(0, 50, 0),
+    Size = Vector3.new(20, 20, 20),
+    Transparency = 0.5
+}
+
+-- Создание и запуск анимации
+local tween = TweenService:Create(part, tweenInfo, goal)
+tween:Play()
+
+-- События анимации
+tween.Completed:Connect(function()
+    print("Анимация завершена!")
+end)''',
+            'explanation': 'TweenService позволяет плавно анимировать любые свойства объектов без скриптовых циклов.',
+            'keywords': ['roblox', 'tween', 'анимация', 'tweenservice', 'плавность'],
+            'is_roblox': True
+        },
+        {
+            'category': 'Roblox Полезное',
+            'topic': 'ContextActionService - управление',
+            'description': 'Привязка действий к клавишам',
+            'code_example': '''local ContextActionService = game:GetService("ContextActionService")
+local UserInputService = game:GetService("UserInputService")
+
+-- Функция действия
+local function onJumpAction(actionName, inputState, inputObject)
+    if inputState == Enum.UserInputState.Begin then
+        print("Прыжок!")
+        local character = game.Players.LocalPlayer.Character
+        local humanoid = character:FindFirstChild("Humanoid")
+        if humanoid then
+            humanoid.Jump = true
+        end
+    end
+end
+
+-- Привязка к клавише
+ContextActionService:BindAction(
+    "CustomJump",  -- имя действия
+    onJumpAction,  -- функция
+    true,  -- показывать на мобильных
+    Enum.KeyCode.Space  -- клавиша
+)
+
+-- Отвязка действия
+-- ContextActionService:UnbindAction("CustomJump")''',
+            'explanation': 'ContextActionService управляет пользовательским вводом и автоматически создаёт кнопки для мобильных устройств.',
+            'keywords': ['roblox', 'input', 'ввод', 'клавиши', 'управление', 'contextaction'],
+            'is_roblox': True
+        }
+    ]
+    
     initial_knowledge = [
         {
             'category': 'Основы',
@@ -423,17 +615,32 @@ end''',
         }
     ]
     
-    for item in initial_knowledge:
+    for item in roblox_knowledge:
         cursor.execute("""
-            INSERT INTO lua_knowledge_base (category, topic, description, code_example, explanation, keywords)
-            VALUES (%s, %s, %s, %s, %s, %s)
+            INSERT INTO lua_knowledge_base (category, topic, description, code_example, explanation, keywords, is_roblox)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
         """, (
             item['category'],
             item['topic'],
             item['description'],
             item['code_example'],
             item['explanation'],
-            item['keywords']
+            item['keywords'],
+            item.get('is_roblox', False)
+        ))
+    
+    for item in initial_knowledge:
+        cursor.execute("""
+            INSERT INTO lua_knowledge_base (category, topic, description, code_example, explanation, keywords, is_roblox)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+        """, (
+            item['category'],
+            item['topic'],
+            item['description'],
+            item['code_example'],
+            item['explanation'],
+            item['keywords'],
+            item.get('is_roblox', False)
         ))
     
     conn.commit()
