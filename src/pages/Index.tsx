@@ -1,11 +1,524 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import Icon from '@/components/ui/icon';
+import { useToast } from '@/hooks/use-toast';
+
+interface Message {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: Date;
+}
+
+interface ApiKey {
+  id: string;
+  key: string;
+  name: string;
+  created: Date;
+  lastUsed?: Date;
+}
+
+interface TrainingExample {
+  id: string;
+  input: string;
+  output: string;
+  category: string;
+  created: Date;
+}
 
 const Index = () => {
+  const [isDark, setIsDark] = useState(true);
+  const [activeTab, setActiveTab] = useState('home');
+  const [messages, setMessages] = useState<Message[]>([
+    {
+      id: '1',
+      role: 'assistant',
+      content: 'Привет! Я MadAI — искусственный интеллект с поддержкой Lua, JavaScript, Python и математики. Чем могу помочь?',
+      timestamp: new Date(),
+    },
+  ]);
+  const [inputMessage, setInputMessage] = useState('');
+  const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
+  const [trainingExamples, setTrainingExamples] = useState<TrainingExample[]>([]);
+  const [trainingInput, setTrainingInput] = useState('');
+  const [trainingOutput, setTrainingOutput] = useState('');
+  const [trainingCategory, setTrainingCategory] = useState('');
+  const { toast } = useToast();
+
+  useState(() => {
+    if (isDark) {
+      document.documentElement.classList.add('dark');
+    }
+  });
+
+  const sendMessage = () => {
+    if (!inputMessage.trim()) return;
+
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: inputMessage,
+      timestamp: new Date(),
+    };
+
+    setMessages((prev) => [...prev, userMessage]);
+
+    setTimeout(() => {
+      const aiResponse: Message = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: generateAIResponse(inputMessage),
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, aiResponse]);
+    }, 800);
+
+    setInputMessage('');
+  };
+
+  const generateAIResponse = (input: string): string => {
+    const lowerInput = input.toLowerCase();
+    
+    if (lowerInput.includes('lua') || lowerInput.includes('луа')) {
+      return '```lua\n-- Пример Lua кода\nfunction greet(name)\n  return "Hello, " .. name\nend\n\nprint(greet("World"))\n```\n\nЯ могу помочь с программированием на Lua! Что именно вас интересует?';
+    }
+    
+    if (lowerInput.includes('javascript') || lowerInput.includes('js')) {
+      return '```javascript\n// Пример JavaScript кода\nconst greet = (name) => {\n  return `Hello, ${name}`;\n};\n\nconsole.log(greet("World"));\n```\n\nГотов помочь с JavaScript! Задавайте вопросы.';
+    }
+    
+    if (lowerInput.includes('python') || lowerInput.includes('питон')) {
+      return '```python\n# Пример Python кода\ndef greet(name):\n    return f"Hello, {name}"\n\nprint(greet("World"))\n```\n\nМогу помочь с Python! Какая задача?';
+    }
+    
+    if (lowerInput.match(/\d+[\+\-\*\/]\d+/)) {
+      try {
+        const result = eval(lowerInput);
+        return `Результат вычисления: **${result}**\n\nМогу решать более сложные математические задачи!`;
+      } catch (e) {
+        return 'Попробуйте другое математическое выражение.';
+      }
+    }
+    
+    return `Я обработал ваш запрос: "${input}"\n\nЯ поддерживаю:\n• Lua, JavaScript, Python\n• Математические вычисления\n• Обучение от пользователя\n\nЗадайте мне вопрос по программированию или математике!`;
+  };
+
+  const generateApiKey = () => {
+    const newKey: ApiKey = {
+      id: Date.now().toString(),
+      key: `mad_${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`,
+      name: `API Key ${apiKeys.length + 1}`,
+      created: new Date(),
+    };
+    
+    setApiKeys((prev) => [...prev, newKey]);
+    toast({
+      title: 'API ключ создан',
+      description: 'Новый ключ добавлен в список',
+    });
+  };
+
+  const copyApiKey = (key: string) => {
+    navigator.clipboard.writeText(key);
+    toast({
+      title: 'Скопировано!',
+      description: 'API ключ скопирован в буфер обмена',
+    });
+  };
+
+  const deleteApiKey = (id: string) => {
+    setApiKeys((prev) => prev.filter((k) => k.id !== id));
+    toast({
+      title: 'Ключ удален',
+      description: 'API ключ успешно удален',
+    });
+  };
+
+  const addTrainingExample = () => {
+    if (!trainingInput.trim() || !trainingOutput.trim() || !trainingCategory.trim()) {
+      toast({
+        title: 'Заполните все поля',
+        description: 'Для обучения нужны вход, выход и категория',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const newExample: TrainingExample = {
+      id: Date.now().toString(),
+      input: trainingInput,
+      output: trainingOutput,
+      category: trainingCategory,
+      created: new Date(),
+    };
+
+    setTrainingExamples((prev) => [...prev, newExample]);
+    setTrainingInput('');
+    setTrainingOutput('');
+    setTrainingCategory('');
+    
+    toast({
+      title: 'Пример добавлен!',
+      description: 'AI обучился на новом примере',
+    });
+  };
+
+  const deleteTrainingExample = (id: string) => {
+    setTrainingExamples((prev) => prev.filter((e) => e.id !== id));
+    toast({
+      title: 'Пример удален',
+      description: 'Обучающий пример удален из базы',
+    });
+  };
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4 color-black text-black">Добро пожаловать!</h1>
-        <p className="text-xl text-gray-600">тут будет отображаться ваш проект</p>
+    <div className="min-h-screen bg-background">
+      <nav className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
+        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
+              <Icon name="Brain" className="text-white" size={24} />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+                MadAI
+              </h1>
+              <p className="text-xs text-muted-foreground">Обучаемый ИИ</p>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="gap-1">
+              <Icon name="Zap" size={12} />
+              Online
+            </Badge>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => {
+                setIsDark(!isDark);
+                document.documentElement.classList.toggle('dark');
+              }}
+            >
+              <Icon name={isDark ? 'Sun' : 'Moon'} size={20} />
+            </Button>
+          </div>
+        </div>
+      </nav>
+
+      <div className="container mx-auto px-4 py-8">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-4 mb-8">
+            <TabsTrigger value="home" className="gap-2">
+              <Icon name="Home" size={16} />
+              Главная
+            </TabsTrigger>
+            <TabsTrigger value="chat" className="gap-2">
+              <Icon name="MessageSquare" size={16} />
+              Чат с AI
+            </TabsTrigger>
+            <TabsTrigger value="api" className="gap-2">
+              <Icon name="Key" size={16} />
+              API ключи
+            </TabsTrigger>
+            <TabsTrigger value="training" className="gap-2">
+              <Icon name="GraduationCap" size={16} />
+              Обучение AI
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="home" className="space-y-8">
+            <div className="text-center space-y-4 py-12">
+              <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-primary to-secondary mb-4">
+                <Icon name="Sparkles" className="text-white" size={40} />
+              </div>
+              <h2 className="text-4xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+                Добро пожаловать в MadAI
+              </h2>
+              <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+                Искусственный интеллект, который учится у вас и поддерживает программирование на Lua, JavaScript, Python
+              </p>
+            </div>
+
+            <div className="grid md:grid-cols-3 gap-6">
+              <Card className="p-6 space-y-3 hover:shadow-lg transition-shadow border-primary/20">
+                <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Icon name="Code" className="text-primary" size={24} />
+                </div>
+                <h3 className="text-xl font-semibold">Программирование</h3>
+                <p className="text-muted-foreground">
+                  Поддержка Lua, JavaScript и Python с примерами кода и объяснениями
+                </p>
+              </Card>
+
+              <Card className="p-6 space-y-3 hover:shadow-lg transition-shadow border-secondary/20">
+                <div className="w-12 h-12 rounded-lg bg-secondary/10 flex items-center justify-center">
+                  <Icon name="Calculator" className="text-secondary" size={24} />
+                </div>
+                <h3 className="text-xl font-semibold">Математика</h3>
+                <p className="text-muted-foreground">
+                  Решение математических задач и вычислений любой сложности
+                </p>
+              </Card>
+
+              <Card className="p-6 space-y-3 hover:shadow-lg transition-shadow border-primary/20">
+                <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Icon name="BookOpen" className="text-primary" size={24} />
+                </div>
+                <h3 className="text-xl font-semibold">Обучение</h3>
+                <p className="text-muted-foreground">
+                  AI учится на ваших примерах и становится умнее с каждым взаимодействием
+                </p>
+              </Card>
+            </div>
+
+            <Card className="p-8 bg-gradient-to-br from-primary/5 to-secondary/5 border-primary/20">
+              <div className="space-y-4">
+                <h3 className="text-2xl font-bold">Статистика обучения</h3>
+                <div className="grid md:grid-cols-3 gap-6">
+                  <div className="space-y-2">
+                    <p className="text-sm text-muted-foreground">Примеров обучения</p>
+                    <p className="text-3xl font-bold text-primary">{trainingExamples.length}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-sm text-muted-foreground">API ключей</p>
+                    <p className="text-3xl font-bold text-secondary">{apiKeys.length}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-sm text-muted-foreground">Сообщений в чате</p>
+                    <p className="text-3xl font-bold text-primary">{messages.length}</p>
+                  </div>
+                </div>
+              </div>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="chat" className="space-y-4">
+            <Card className="p-6">
+              <ScrollArea className="h-[500px] pr-4">
+                <div className="space-y-4">
+                  {messages.map((msg) => (
+                    <div
+                      key={msg.id}
+                      className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
+                    >
+                      <div
+                        className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                          msg.role === 'user'
+                            ? 'bg-primary text-white'
+                            : 'bg-gradient-to-br from-primary to-secondary text-white'
+                        }`}
+                      >
+                        <Icon name={msg.role === 'user' ? 'User' : 'Brain'} size={18} />
+                      </div>
+                      <div
+                        className={`flex-1 rounded-lg p-4 ${
+                          msg.role === 'user'
+                            ? 'bg-primary text-white ml-12'
+                            : 'bg-muted mr-12'
+                        }`}
+                      >
+                        <p className="whitespace-pre-wrap text-sm">{msg.content}</p>
+                        <p className={`text-xs mt-2 ${msg.role === 'user' ? 'text-white/70' : 'text-muted-foreground'}`}>
+                          {msg.timestamp.toLocaleTimeString('ru-RU')}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+
+              <div className="flex gap-2 mt-4">
+                <Input
+                  placeholder="Напишите сообщение... (попробуйте Lua, Python или 2+2)"
+                  value={inputMessage}
+                  onChange={(e) => setInputMessage(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
+                  className="flex-1"
+                />
+                <Button onClick={sendMessage} className="gap-2">
+                  <Icon name="Send" size={18} />
+                  Отправить
+                </Button>
+              </div>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="api" className="space-y-4">
+            <Card className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-xl font-semibold">API ключи</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Управление ключами доступа к MadAI API
+                  </p>
+                </div>
+                <Button onClick={generateApiKey} className="gap-2">
+                  <Icon name="Plus" size={18} />
+                  Создать ключ
+                </Button>
+              </div>
+
+              {apiKeys.length === 0 ? (
+                <div className="text-center py-12 space-y-3">
+                  <div className="w-16 h-16 rounded-full bg-muted mx-auto flex items-center justify-center">
+                    <Icon name="Key" className="text-muted-foreground" size={32} />
+                  </div>
+                  <p className="text-muted-foreground">У вас пока нет API ключей</p>
+                  <p className="text-sm text-muted-foreground">Создайте первый ключ для доступа к API</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {apiKeys.map((apiKey) => (
+                    <Card key={apiKey.id} className="p-4 hover:shadow-md transition-shadow">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1 space-y-2">
+                          <div className="flex items-center gap-2">
+                            <p className="font-semibold">{apiKey.name}</p>
+                            <Badge variant="outline" className="text-xs">
+                              <Icon name="Shield" size={10} className="mr-1" />
+                              Active
+                            </Badge>
+                          </div>
+                          <div className="flex items-center gap-2 font-mono text-sm bg-muted px-3 py-2 rounded">
+                            <code className="flex-1">{apiKey.key}</code>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => copyApiKey(apiKey.key)}
+                            >
+                              <Icon name="Copy" size={14} />
+                            </Button>
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            Создан: {apiKey.created.toLocaleDateString('ru-RU')} в{' '}
+                            {apiKey.created.toLocaleTimeString('ru-RU')}
+                          </p>
+                        </div>
+                        <Button
+                          variant="destructive"
+                          size="icon"
+                          onClick={() => deleteApiKey(apiKey.id)}
+                          className="ml-4"
+                        >
+                          <Icon name="Trash2" size={18} />
+                        </Button>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </Card>
+
+            <Card className="p-6 bg-primary/5 border-primary/20">
+              <h4 className="font-semibold mb-2 flex items-center gap-2">
+                <Icon name="Info" size={18} className="text-primary" />
+                Как использовать API
+              </h4>
+              <div className="space-y-2 text-sm text-muted-foreground">
+                <p>1. Создайте API ключ и скопируйте его</p>
+                <p>2. Добавьте ключ в заголовок запроса: Authorization: Bearer YOUR_KEY</p>
+                <p>3. Отправляйте POST запросы на endpoint: https://api.madai.dev/v1/chat</p>
+              </div>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="training" className="space-y-4">
+            <Card className="p-6">
+              <h3 className="text-xl font-semibold mb-4">Обучить AI на новом примере</h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Входные данные</label>
+                  <Textarea
+                    placeholder="Например: Как сделать цикл в Lua?"
+                    value={trainingInput}
+                    onChange={(e) => setTrainingInput(e.target.value)}
+                    className="min-h-[100px]"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Ожидаемый ответ</label>
+                  <Textarea
+                    placeholder="for i = 1, 10 do print(i) end"
+                    value={trainingOutput}
+                    onChange={(e) => setTrainingOutput(e.target.value)}
+                    className="min-h-[100px]"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Категория</label>
+                  <Input
+                    placeholder="Lua, JavaScript, Python, Math..."
+                    value={trainingCategory}
+                    onChange={(e) => setTrainingCategory(e.target.value)}
+                  />
+                </div>
+                <Button onClick={addTrainingExample} className="w-full gap-2">
+                  <Icon name="Plus" size={18} />
+                  Добавить пример обучения
+                </Button>
+              </div>
+            </Card>
+
+            <Card className="p-6">
+              <h3 className="text-xl font-semibold mb-4">
+                База обучения ({trainingExamples.length})
+              </h3>
+              
+              {trainingExamples.length === 0 ? (
+                <div className="text-center py-12 space-y-3">
+                  <div className="w-16 h-16 rounded-full bg-muted mx-auto flex items-center justify-center">
+                    <Icon name="GraduationCap" className="text-muted-foreground" size={32} />
+                  </div>
+                  <p className="text-muted-foreground">База обучения пуста</p>
+                  <p className="text-sm text-muted-foreground">
+                    Добавьте первый пример, чтобы AI начал обучаться
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {trainingExamples.map((example) => (
+                    <Card key={example.id} className="p-4 hover:shadow-md transition-shadow">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1 space-y-3">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="secondary">{example.category}</Badge>
+                            <span className="text-xs text-muted-foreground">
+                              {example.created.toLocaleDateString('ru-RU')}
+                            </span>
+                          </div>
+                          <div className="space-y-2">
+                            <div>
+                              <p className="text-sm font-medium text-muted-foreground mb-1">Вопрос:</p>
+                              <p className="text-sm bg-muted p-2 rounded">{example.input}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-muted-foreground mb-1">Ответ:</p>
+                              <p className="text-sm bg-muted p-2 rounded">{example.output}</p>
+                            </div>
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => deleteTrainingExample(example.id)}
+                        >
+                          <Icon name="Trash2" size={18} />
+                        </Button>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
