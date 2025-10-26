@@ -1,0 +1,17 @@
+{
+  "tests": [
+    {
+      "name": "Тест автоочистки сообщений",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "success": true,
+        "deleted_messages": "number",
+        "timestamp": "string",
+        "message": "string"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}
