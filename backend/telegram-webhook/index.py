@@ -3,53 +3,77 @@ import os
 import psycopg2
 from typing import Dict, Any
 
-def get_ai_response_from_chat(message: str, chat_id: int, api_key: str) -> str:
+def get_openai_response(query: str, chat_history: list, conn) -> str:
     import urllib.request
+    import urllib.parse
     
-    chat_api_url = os.environ.get('CHAT_API_URL', 'https://functions.poehali.dev/chat')
+    openai_api_key = os.environ.get('OPENAI_API_KEY')
+    if not openai_api_key:
+        return "⚠️ OpenAI API key не настроен. Обратитесь к администратору."
     
+    messages = [
+        {"role": "system", "content": "Ты — MadAI, эксперт по программированию на Lua. Отвечай на русском языке. Давай четкие, понятные ответы с примерами кода когда это уместно. Используй Markdown для форматирования."}
+    ]
+    
+    messages.extend(chat_history[-10:])
+    
+    messages.append({"role": "user", "content": query})
+    
+    url = "https://api.openai.com/v1/chat/completions"
     headers = {
         'Content-Type': 'application/json',
-        'X-Api-Key': api_key
+        'Authorization': f'Bearer {openai_api_key}'
     }
     
     data = json.dumps({
-        "message": message,
-        "chat_id": chat_id
+        "model": "gpt-4o-mini",
+        "messages": messages,
+        "temperature": 0.7,
+        "max_tokens": 1000
     }).encode()
     
     try:
-        req = urllib.request.Request(chat_api_url, data=data, headers=headers, method='POST')
+        req = urllib.request.Request(url, data=data, headers=headers)
         with urllib.request.urlopen(req) as response:
             result = json.loads(response.read().decode())
-            return result.get('ai_response', {}).get('content', 'Ошибка получения ответа')
+            return result['choices'][0]['message']['content']
     except Exception as e:
-        print(f"Chat API error: {e}")
-        return f"❌ Ошибка связи с AI: {str(e)}"
+        print(f"OpenAI API error: {e}")
+        return f"❌ Ошибка при обращении к AI: {str(e)}"
 
-def get_api_key_by_id(api_key_id: int, conn) -> str:
+def get_chat_history(chat_id: int, conn) -> list:
     cursor = conn.cursor()
-    cursor.execute("SELECT key FROM api_keys WHERE id = %s", (api_key_id,))
-    result = cursor.fetchone()
+    
+    cursor.execute(f"""
+        SELECT role, content
+        FROM chat_messages
+        WHERE chat_id = {chat_id}
+        ORDER BY created_at DESC
+        LIMIT 20
+    """)
+    
+    results = cursor.fetchall()
     cursor.close()
-    return result[0] if result else None
+    
+    history = []
+    for role, content in reversed(results):
+        history.append({"role": role, "content": content})
+    
+    return history
 
-def get_bot_by_token(telegram_token: str, conn) -> tuple:
+def get_bot_by_token(telegram_token: str, conn) -> bool:
     cursor = conn.cursor()
     
     token_safe = telegram_token.replace("'", "''")
     
     cursor.execute(f"""
-        SELECT tb.id, tb.api_key_id
+        SELECT tb.id 
         FROM telegram_bots tb
         WHERE tb.telegram_token = '{token_safe}' AND tb.is_active = true
     """)
     result = cursor.fetchone()
     cursor.close()
-    
-    if result:
-        return (result[0], result[1])
-    return (None, None)
+    return result is not None
 
 def send_telegram_message(chat_id: int, text: str, bot_token: str):
     import urllib.request
@@ -71,7 +95,7 @@ def send_telegram_message(chat_id: int, text: str, bot_token: str):
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     '''
-    Business: Telegram webhook для MadAI с вашим AI через API ключи
+    Business: Telegram webhook для MadAI бота с AI интеграцией
     Args: event - webhook от Telegram, context - функция контекст
     Returns: HTTP response
     '''
@@ -116,24 +140,12 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     
     conn = psycopg2.connect(database_url)
     
-    bot_id, api_key_id = get_bot_by_token(telegram_token, conn)
-    
-    if not bot_id:
+    if not get_bot_by_token(telegram_token, conn):
         conn.close()
         return {
             'statusCode': 403,
             'headers': {'Content-Type': 'application/json'},
             'body': json.dumps({'error': 'Bot not found or inactive'})
-        }
-    
-    api_key = get_api_key_by_id(api_key_id, conn) if api_key_id else None
-    
-    if not api_key:
-        conn.close()
-        return {
-            'statusCode': 403,
-            'headers': {'Content-Type': 'application/json'},
-            'body': json.dumps({'error': 'API key not configured for this bot'})
         }
     
     try:
@@ -160,9 +172,34 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
 Просто напишите ваш вопрос!"""
             else:
-                print(f"Sending to chat API: '{user_text}'")
-                response_text = get_ai_response_from_chat(user_text, chat_id, api_key)
-                print(f"AI response (first 100 chars): {response_text[:100]}")
+                print(f"Processing user query with OpenAI: '{user_text}'")
+                
+                user_text_safe = user_text.replace("'", "''")
+                
+                cursor = conn.cursor()
+                cursor.execute(f"""
+                    INSERT INTO chat_messages (chat_id, role, content)
+                    VALUES ({chat_id}, 'user', '{user_text_safe}')
+                """)
+                conn.commit()
+                cursor.close()
+                
+                chat_history = get_chat_history(chat_id, conn)
+                
+                ai_response = get_openai_response(user_text, chat_history, conn)
+                print(f"AI response (first 100 chars): {ai_response[:100]}")
+                
+                ai_response_safe = ai_response.replace("'", "''")
+                
+                cursor = conn.cursor()
+                cursor.execute(f"""
+                    INSERT INTO chat_messages (chat_id, role, content)
+                    VALUES ({chat_id}, 'assistant', '{ai_response_safe}')
+                """)
+                conn.commit()
+                cursor.close()
+                
+                response_text = ai_response
             
             send_telegram_message(chat_id, response_text, telegram_token)
         

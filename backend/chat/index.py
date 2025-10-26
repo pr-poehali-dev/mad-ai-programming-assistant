@@ -4,7 +4,6 @@ import psycopg2
 import urllib.request
 import urllib.parse
 from typing import Dict, Any, List
-from datetime import datetime, timedelta
 
 def get_creator_info(conn) -> str:
     cursor = conn.cursor()
@@ -141,22 +140,6 @@ def get_messages(conn) -> List[Dict]:
     
     return messages
 
-def cleanup_old_messages(conn, days_to_keep: int = 1) -> int:
-    cursor = conn.cursor()
-    
-    cutoff_date = datetime.now() - timedelta(days=days_to_keep)
-    
-    cursor.execute("""
-        DELETE FROM chat_messages
-        WHERE created_at < %s
-    """, (cutoff_date,))
-    
-    deleted_count = cursor.rowcount
-    conn.commit()
-    cursor.close()
-    
-    return deleted_count
-
 def save_message(role: str, content: str, conn) -> Dict:
     cursor = conn.cursor()
     
@@ -191,7 +174,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'headers': {
                 'Access-Control-Allow-Origin': '*',
                 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-                'Access-Control-Allow-Headers': 'Content-Type, X-Api-Key',
+                'Access-Control-Allow-Headers': 'Content-Type',
                 'Access-Control-Max-Age': '86400'
             },
             'body': ''
@@ -206,26 +189,6 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         }
     
     conn = psycopg2.connect(database_url)
-    
-    headers = event.get('headers', {})
-    api_key = headers.get('X-Api-Key') or headers.get('x-api-key')
-    
-    if api_key:
-        cursor = conn.cursor()
-        cursor.execute("""
-            SELECT id FROM api_keys 
-            WHERE key = %s AND key IS NOT NULL
-        """, (api_key,))
-        result = cursor.fetchone()
-        
-        if result:
-            cursor.execute("""
-                UPDATE api_keys 
-                SET last_used = CURRENT_TIMESTAMP 
-                WHERE id = %s
-            """, (result[0],))
-            conn.commit()
-        cursor.close()
     
     try:
         if method == 'GET':
@@ -244,26 +207,6 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
         elif method == 'POST':
             body_data = json.loads(event.get('body', '{}'))
-            
-            if body_data.get('cleanup'):
-                days_to_keep = body_data.get('days', 1)
-                deleted_count = cleanup_old_messages(conn, days_to_keep)
-                conn.close()
-                
-                return {
-                    'statusCode': 200,
-                    'headers': {
-                        'Content-Type': 'application/json',
-                        'Access-Control-Allow-Origin': '*'
-                    },
-                    'isBase64Encoded': False,
-                    'body': json.dumps({
-                        'success': True,
-                        'deleted_messages': deleted_count,
-                        'message': f'Удалено {deleted_count} сообщений старше {days_to_keep} дн.'
-                    })
-                }
-            
             user_message = body_data.get('message', '')
             
             if not user_message:
