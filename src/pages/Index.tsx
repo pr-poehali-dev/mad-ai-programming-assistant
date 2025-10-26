@@ -386,11 +386,11 @@ const Index = () => {
 
               <Card className="p-6 space-y-3 hover:shadow-lg transition-shadow border-primary/20">
                 <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <Icon name="Send" className="text-primary" size={24} />
+                  <Icon name="Database" className="text-primary" size={24} />
                 </div>
-                <h3 className="text-xl font-semibold">Telegram интеграция</h3>
+                <h3 className="text-xl font-semibold">База знаний</h3>
                 <p className="text-muted-foreground">
-                  Подключите своего Telegram бота и отвечайте на вопросы прямо в мессенджере
+                  Информация о популярных играх, артистах и программировании
                 </p>
               </Card>
             </div>
@@ -534,14 +534,48 @@ const Index = () => {
             </Card>
 
             <Card className="p-6 bg-primary/5 border-primary/20">
-              <h4 className="font-semibold mb-2 flex items-center gap-2">
+              <h4 className="font-semibold mb-3 flex items-center gap-2">
                 <Icon name="Info" size={18} className="text-primary" />
                 Как использовать API
               </h4>
-              <div className="space-y-2 text-sm text-muted-foreground">
-                <p>1. Создайте API ключ и скопируйте его</p>
-                <p>2. Добавьте ключ в заголовок запроса: Authorization: Bearer YOUR_KEY</p>
-                <p>3. Отправляйте POST запросы на endpoint: https://api.madai.dev/v1/chat</p>
+              <div className="space-y-4">
+                <div className="space-y-2 text-sm">
+                  <p className="text-muted-foreground">1. Создайте API ключ и скопируйте его</p>
+                  <p className="text-muted-foreground">2. Используйте этот URL для отправки запросов:</p>
+                  
+                  <div className="bg-background border border-primary/30 rounded-lg p-3 font-mono text-sm">
+                    <div className="flex items-center justify-between gap-2">
+                      <code className="text-primary break-all">
+                        https://functions.poehali.dev/7a89db06-7752-4cc5-b58a-9a9235d4033a
+                      </code>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          navigator.clipboard.writeText('https://functions.poehali.dev/7a89db06-7752-4cc5-b58a-9a9235d4033a');
+                          toast({
+                            title: 'Скопировано!',
+                            description: 'URL API скопирован в буфер обмена',
+                          });
+                        }}
+                      >
+                        <Icon name="Copy" size={14} />
+                      </Button>
+                    </div>
+                  </div>
+
+                  <p className="text-muted-foreground">3. Добавьте заголовок с вашим ключом:</p>
+                  <div className="bg-background border border-primary/30 rounded-lg p-3 font-mono text-xs">
+                    <code>X-Api-Key: ВАШ_API_КЛЮЧ</code>
+                  </div>
+
+                  <p className="text-muted-foreground">4. Отправьте POST запрос с сообщением:</p>
+                  <div className="bg-background border border-primary/30 rounded-lg p-3 font-mono text-xs overflow-x-auto">
+                    <pre>{`{
+  "message": "два плюс два"
+}`}</pre>
+                  </div>
+                </div>
               </div>
             </Card>
           </TabsContent>
